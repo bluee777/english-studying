@@ -767,3 +767,486 @@
   </script>
 </body>
 </html>
+          // 构建分类数据（与之前相同，但使用新的scenes数组）
+          const categories = [
+            {
+              name: "餐饮与饮食",
+              baseIndices: [0, 1, 2, 3, 4, 5]
+            },
+            {
+              name: "旅行与交通",
+              baseIndices: [6, 7, 8, 9, 10, 11, 12, 13]
+            },
+            {
+              name: "日常社交",
+              baseIndices: [14, 15, 16, 17, 18]
+            },
+            {
+              name: "工作与学习",
+              baseIndices: [19, 20, 21, 22, 23]
+            },
+            {
+              name: "购物与服务",
+              baseIndices: [24, 25, 26]
+            },
+            {
+              name: "医疗与紧急",
+              baseIndices: [27, 28, 29, 30]
+            }
+          ];
+
+          // 尝试从 localStorage 读取数据（针对每个场景的统计）
+          let userStats;
+          try {
+            const savedStats = localStorage.getItem('english_user_stats_v2'); // 新版本使用新key，避免冲突
+            userStats = savedStats ? JSON.parse(savedStats) : scenes.map(() => ({ failCount: 0, totalPractice: 0 }));
+          } catch (e) {
+            userStats = scenes.map(() => ({ failCount: 0, totalPractice: 0 }));
+          }
+
+          let proficiency;
+          try {
+            const savedProficiency = localStorage.getItem('english_proficiency_v2');
+            proficiency = savedProficiency ? parseInt(savedProficiency) : 60;
+          } catch (e) {
+            proficiency = 60;
+          }
+
+          function saveData() {
+            try {
+              localStorage.setItem('english_user_stats_v2', JSON.stringify(userStats));
+              localStorage.setItem('english_proficiency_v2', proficiency.toString());
+            } catch (e) {}
+          }
+
+          // 当前选中的场景基础索引和难度、版本
+          let currentBaseIndex = 0;          // scenes 中的索引（基础场景）
+          let currentDifficulty = 'intermediate'; // beginner / intermediate / advanced
+          let currentVariationIndex = 0;      // 0 或 1，随机选取
+          let currentDialogue = '';           // 当前显示的实际对话
+          let currentPractice = '';           // 当前练习句子
+
+          // 为当前难度随机选择一个变体
+          function randomizeVariation() {
+            currentVariationIndex = Math.floor(Math.random() * 2); // 0 或 1
+            const varSet = scenes[currentBaseIndex].variations[currentDifficulty][currentVariationIndex];
+            currentDialogue = varSet.dialogue;
+            currentPractice = varSet.practice;
+            // 更新UI
+            targetSentence.textContent = currentPractice;
+            // 翻译面板清空（需要重新点击翻译）
+            document.getElementById('translationPanel').classList.remove('show');
+          }
+
+          // 切换难度
+          function setDifficulty(level) {
+            currentDifficulty = level;
+            randomizeVariation();
+            // 更新圆点激活状态
+            document.querySelectorAll('.difficulty-dot').forEach(dot => {
+              const diff = dot.dataset.diff;
+              if (diff === level) dot.classList.add('active');
+              else dot.classList.remove('active');
+            });
+          }
+
+          // 翻译函数（简单示例，实际可替换为API调用）
+          function getTranslation(text) {
+            // 模拟翻译，仅作演示
+            const mockTranslations = {
+              "Hi, can I get a latte?": "你好，我能点一杯拿铁吗？",
+              "Sure, for here or to go?": "好的，堂食还是外带？",
+              "For here, but with room for cream.": "堂食，但留点空间加奶油。",
+              "Got it. That'll be $4.50.": "明白了，一共4.5美元。",
+              "I'd like a latte with room for cream.": "我想要一杯拿铁，留点空间加奶油。"
+            };
+            // 简单匹配，如果没找到返回默认
+            for (let key in mockTranslations) {
+              if (text.includes(key)) return mockTranslations[key];
+            }
+            return "（翻译示例）" + text;
+          }
+
+          // DOM元素
+          const categoryHomeView = document.getElementById('categoryHomeView');
+          const categoryDetailView = document.getElementById('categoryDetailView');
+          const detailView = document.getElementById('detailView');
+          const categoryListEl = document.getElementById('categoryList');
+          const categorySceneListEl = document.getElementById('categorySceneList');
+          const backToCategoriesBtn = document.getElementById('backToCategoriesBtn');
+          const currentCategoryNameEl = document.getElementById('currentCategoryName');
+          const backBtn = document.getElementById('backBtn');
+          const detailSceneName = document.getElementById('detailSceneName');
+          const listenBtn = document.getElementById('listenBtn');
+          const readBtn = document.getElementById('readBtn');
+          const practiceBtn = document.getElementById('practiceBtn');
+          const readPanel = document.getElementById('readPanel');
+          const practicePanel = document.getElementById('practicePanel');
+          const targetSentence = document.getElementById('targetSentence');
+          const recordButton = document.getElementById('recordButton');
+          const recognitionOutput = document.getElementById('recognitionOutput');
+          const recognizedText = document.getElementById('recognizedText');
+          const scoreDisplay = document.getElementById('scoreDisplay');
+          const recommendationText = document.getElementById('recommendationText');
+          const proficiencyDisplay = document.getElementById('proficiencyDisplay');
+          const translateBtn = document.getElementById('translateBtn');
+          const translationPanel = document.getElementById('translationPanel');
+
+          // 初始化渲染分类首页
+          function renderCategoryHome() {
+            categoryListEl.innerHTML = categories.map((cat, idx) => {
+              // 计算该分类下薄弱场景总数（failCount >= 2）
+              const weakCount = cat.baseIndices.reduce((acc, baseIdx) => {
+                return acc + (userStats[baseIdx]?.failCount >= 2 ? 1 : 0);
+              }, 0);
+              const badgeText = weakCount > 0 ? `⚠️ ${weakCount}个薄弱` : '';
+              return `<li class="category-item" data-category-index="${idx}">
+                <span>${cat.name}</span>
+                ${badgeText ? `<span class="category-badge">${badgeText}</span>` : ''}
+              </li>`;
+            }).join('');
+          }
+
+          // 渲染分类详情（场景列表），按薄弱程度排序（薄弱优先）
+          function renderCategoryDetail(categoryIndex) {
+            const cat = categories[categoryIndex];
+            currentCategoryNameEl.textContent = cat.name;
+            // 获取该分类下所有场景的基础索引及统计数据
+            const sceneItems = cat.baseIndices.map(baseIdx => {
+              return {
+                baseIdx,
+                name: scenes[baseIdx].name,
+                level: scenes[baseIdx].level,
+                failCount: userStats[baseIdx]?.failCount || 0
+              };
+            });
+            // 按失败次数降序排序（薄弱优先）
+            sceneItems.sort((a, b) => b.failCount - a.failCount);
+            categorySceneListEl.innerHTML = sceneItems.map(item => {
+              const weakDot = item.failCount >= 2 ? '<span class="weak-dot">●</span>' : '';
+              return `<li class="scene-item" data-base-index="${item.baseIdx}">
+                <span class="scene-name">${item.name} ${item.level}</span>
+                ${weakDot}
+              </li>`;
+            }).join('');
+          }
+
+          // 事件：点击分类进入分类详情
+          categoryListEl.addEventListener('click', (e) => {
+            const catItem = e.target.closest('.category-item');
+            if (catItem) {
+              const idx = catItem.dataset.categoryIndex;
+              if (idx !== undefined) {
+                renderCategoryDetail(parseInt(idx));
+                categoryHomeView.classList.add('hidden');
+                categoryDetailView.classList.remove('hidden');
+              }
+            }
+          });
+
+          // 事件：点击分类详情中的场景进入场景详情
+          categorySceneListEl.addEventListener('click', (e) => {
+            const sceneItem = e.target.closest('.scene-item');
+            if (sceneItem) {
+              const baseIdx = sceneItem.dataset.baseIndex;
+              if (baseIdx !== undefined) {
+                openDetail(parseInt(baseIdx));
+              }
+            }
+          });
+
+          // 返回分类首页
+          backToCategoriesBtn.addEventListener('click', () => {
+            categoryDetailView.classList.add('hidden');
+            categoryHomeView.classList.remove('hidden');
+          });
+
+          // 打开场景详情
+          function openDetail(baseIndex) {
+            currentBaseIndex = baseIndex;
+            detailSceneName.textContent = scenes[baseIndex].name;
+            // 默认难度为中级，随机选择变体
+            setDifficulty('intermediate');
+            // 隐藏所有子面板
+            readPanel.classList.add('hidden');
+            practicePanel.classList.add('hidden');
+            recognitionOutput.classList.add('hidden');
+            translationPanel.classList.remove('show');
+            // 隐藏上层视图
+            categoryHomeView.classList.add('hidden');
+            categoryDetailView.classList.add('hidden');
+            detailView.classList.remove('hidden');
+          }
+
+          // 返回按钮
+          function goBackFromDetail() {
+            detailView.classList.add('hidden');
+            if (currentCategoryIndex !== undefined && categories[currentCategoryIndex]) {
+              categoryDetailView.classList.remove('hidden');
+              // 刷新分类详情（因为可能更新了薄弱点）
+              renderCategoryDetail(currentCategoryIndex);
+            } else {
+              categoryHomeView.classList.remove('hidden');
+            }
+            // 停止录音/TTS
+            if (recognition && isRecording) {
+              try { recognition.stop(); } catch (e) {}
+              stopRecordingUI();
+            }
+            if ('speechSynthesis' in window) {
+              window.speechSynthesis.cancel();
+            }
+          }
+          backBtn.addEventListener('click', goBackFromDetail);
+
+          // 难度切换事件
+          document.querySelectorAll('.difficulty-dot').forEach(dot => {
+            dot.addEventListener('click', (e) => {
+              const diff = e.target.dataset.diff;
+              setDifficulty(diff);
+            });
+          });
+
+          // 翻译按钮事件
+          translateBtn.addEventListener('click', () => {
+            // 获取当前对话的翻译（简单模拟）
+            const translation = getTranslation(currentDialogue);
+            translationPanel.textContent = translation;
+            translationPanel.classList.toggle('show');
+          });
+
+          // 更新地道度
+          function updateProficiency(delta) {
+            proficiency = Math.min(100, Math.max(0, proficiency + delta));
+            proficiencyDisplay.textContent = `地道度 ${Math.round(proficiency)}%`;
+            saveData();
+          }
+
+          // 处理口语练习结果
+          function handlePracticeResult(recognized, target) {
+            if (!recognized.trim()) {
+              userStats[currentBaseIndex].failCount++;
+              updateProficiency(-1);
+              showScore('再试试 👎', 'score-tryagain', '未能识别，请重试');
+              saveData();
+              // 刷新分类首页和分类详情（如果当前在某个分类中）
+              renderCategoryHome();
+              if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
+              return;
+            }
+            const normalize = s => s.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length>0);
+            const targetWords = normalize(target);
+            const recognizedWords = normalize(recognized);
+            const matched = targetWords.filter(w => recognizedWords.includes(w)).length;
+            const matchRate = targetWords.length ? matched / targetWords.length : 0;
+            let scoreText, className, delta;
+            
+            if (matchRate >= 0.8) {
+              scoreText = '优秀 👍';
+              className = 'score-excellent';
+              delta = 2;
+              if (userStats[currentBaseIndex].failCount > 0) userStats[currentBaseIndex].failCount--;
+            } else if (matchRate >= 0.5) {
+              scoreText = '良好 👌';
+              className = 'score-good';
+              delta = 1;
+            } else {
+              scoreText = '再试试 👎';
+              className = 'score-tryagain';
+              delta = -1;
+              userStats[currentBaseIndex].failCount++;
+            }
+            userStats[currentBaseIndex].totalPractice++;
+            
+            updateProficiency(delta);
+            showScore(scoreText, className, `识别: "${recognized}"`);
+            saveData();
+            // 刷新分类首页和分类详情
+            renderCategoryHome();
+            if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
+          }
+
+          function showScore(scoreText, className, detail) {
+            recognizedText.textContent = detail;
+            scoreDisplay.innerHTML = `<span class="score-badge ${className}">${scoreText}</span>`;
+            recognitionOutput.classList.remove('hidden');
+          }
+
+          // Web Speech API 录音相关
+          let isRecording = false;
+          let recognition = null;
+          let webSpeechSupported = false;
+          if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+            webSpeechSupported = true;
+          }
+
+          function startRecording() {
+            if (!webSpeechSupported) {
+              alert('您的浏览器不支持语音识别，使用模拟评分。');
+              const rand = Math.random();
+              let result;
+              if (rand < 0.33) {
+                result = { score: '优秀 👍', delta: 2, fail: false };
+                if (userStats[currentBaseIndex].failCount > 0) userStats[currentBaseIndex].failCount--;
+              } else if (rand < 0.66) {
+                result = { score: '良好 👌', delta: 1, fail: false };
+              } else {
+                result = { score: '再试试 👎', delta: -1, fail: true };
+              }
+              if (result.fail) userStats[currentBaseIndex].failCount++;
+              updateProficiency(result.delta);
+              showScore(result.score, result.fail ? 'score-tryagain' : (result.delta===2?'score-excellent':'score-good'), '模拟识别(降级模式)');
+              saveData();
+              renderCategoryHome();
+              if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
+              return;
+            }
+
+            if (isRecording) {
+              recognition.stop();
+              return;
+            }
+
+            try {
+              recognition.start();
+              isRecording = true;
+              recordButton.textContent = '⏹️ 停止录音';
+              recordButton.classList.add('recording');
+
+              recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                handlePracticeResult(transcript, currentPractice);
+                recognition.stop();
+              };
+
+              recognition.onerror = (e) => {
+                alert('录音出错，请重试。请确认麦克风权限已开启。');
+                stopRecordingUI();
+              };
+
+              recognition.onend = () => stopRecordingUI();
+            } catch (e) {
+              alert('无法启动录音，请检查麦克风权限。');
+              stopRecordingUI();
+            }
+          }
+
+          function stopRecordingUI() {
+            isRecording = false;
+            recordButton.textContent = '🎙️ 开始录音';
+            recordButton.classList.remove('recording');
+          }
+
+          // 每日推荐（基于基础索引）
+          function setDailyRecommendation() {
+            const today = new Date().getDay(); 
+            const recMap = [26, 19, 2, 5, 12, 0, 6]; // 这些索引是基础索引，与新scenes一致
+            let idx = recMap[today] || 0;
+            if (userStats[idx] && userStats[idx].failCount >= 2) {
+              idx = (idx + 1) % scenes.length;
+            }
+            recommendationText.textContent = `今日推荐： ${scenes[idx].name}`;
+            recommendationText.dataset.recommendIndex = idx;
+          }
+
+          // 点击推荐直接进入场景详情
+          recommendationText.addEventListener('click', () => {
+            const idx = recommendationText.dataset.recommendIndex;
+            if (idx) openDetail(parseInt(idx));
+          });
+
+          // TTS 听对话（根据当前难度调整语速）
+          listenBtn.addEventListener('click', () => {
+            if (!('speechSynthesis' in window)) {
+              alert("您的浏览器不支持语音播报功能");
+              return;
+            }
+            window.speechSynthesis.cancel();
+
+            let rate = 0.9; // 默认中级语速
+            if (currentDifficulty === 'beginner') rate = 0.7;
+            else if (currentDifficulty === 'advanced') rate = 1.0;
+
+            let voices = [];
+            try {
+              voices = window.speechSynthesis.getVoices();
+            } catch (e) {}
+            let enVoices = voices.filter(v => v.lang.startsWith('en'));
+            
+            let voiceA = null, voiceB = null;
+            if (enVoices.length >= 2) {
+              voiceA = enVoices[0];
+              voiceB = enVoices[1];
+            } else if (enVoices.length === 1) {
+              voiceA = voiceB = enVoices[0];
+            } else if (voices.length > 0) {
+              voiceA = voiceB = voices[0];
+            }
+
+            const parts = currentDialogue.split(/(A:|B:)/).filter(p => p.trim() !== '');
+            let currentSpeaker = 'A';
+            
+            parts.forEach(part => {
+              let text = part.trim();
+              if (text === 'A:' || text === 'B:') {
+                currentSpeaker = text.charAt(0);
+              } else {
+                text = text.replace(/^"|"$/g, '').trim();
+                if (text.length > 0) {
+                  const utterance = new SpeechSynthesisUtterance(text);
+                  utterance.lang = 'en-US';
+                  utterance.rate = rate;
+                  if (currentSpeaker === 'A' && voiceA) utterance.voice = voiceA;
+                  if (currentSpeaker === 'B' && voiceB) utterance.voice = voiceB;
+                  window.speechSynthesis.speak(utterance);
+                }
+              }
+            });
+          });
+
+          // 读文本
+          readBtn.addEventListener('click', () => {
+            const formattedDialogue = currentDialogue.replace(/\s+(A:|B:)/g, '\n$1');
+            readPanel.innerHTML = formattedDialogue.split('\n').filter(line => line.trim() !== '').map(line => {
+              if (line.trim().startsWith('A:')) return `<div class="dialogue-line"><span class="speaker">A:</span> ${line.slice(2)}</div>`;
+              if (line.trim().startsWith('B:')) return `<div class="dialogue-line"><span class="speaker">B:</span> ${line.slice(2)}</div>`;
+              return `<div class="dialogue-line">${line}</div>`;
+            }).join('');
+            readPanel.classList.remove('hidden');
+            practicePanel.classList.add('hidden');
+            translationPanel.classList.remove('show');
+          });
+
+          practiceBtn.addEventListener('click', () => {
+            practicePanel.classList.remove('hidden');
+            readPanel.classList.add('hidden');
+            recognitionOutput.classList.add('hidden');
+            translationPanel.classList.remove('show');
+          });
+
+          recordButton.addEventListener('click', startRecording);
+
+          // 初始化
+          renderCategoryHome();
+          setDailyRecommendation();
+          proficiencyDisplay.textContent = `地道度 ${proficiency}%`;
+
+          window.goHome = goBackFromDetail; // 兼容
+
+        } catch (err) {
+          console.error(err);
+          const app = document.getElementById('app');
+          if (app) {
+            app.innerHTML = '<div style="text-align:center; padding:2rem; color:#721c24;">页面加载出错，请刷新或检查控制台</div>';
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
