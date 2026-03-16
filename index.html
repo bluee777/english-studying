@@ -45,6 +45,33 @@
       border-radius: 30px;
       border: 1px solid #eaecef;
     }
+    .category-list {
+      list-style: none;
+      margin-top: 1rem;
+    }
+    .category-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.2rem 1rem;
+      margin: 2px 0;
+      border-radius: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 1.3rem;
+      font-weight: 400;
+    }
+    .category-item:hover {
+      background: #fafafa;
+    }
+    .category-badge {
+      background: #e9ecef;
+      border-radius: 30px;
+      padding: 0.2rem 0.8rem;
+      font-size: 0.9rem;
+      color: #495057;
+    }
     .scene-list {
       list-style: none;
       margin-top: 1rem;
@@ -218,6 +245,11 @@
       padding: 2rem;
       font-size: 1.1rem;
     }
+    .category-header {
+      font-size: 1.5rem;
+      font-weight: 350;
+      margin-bottom: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -228,14 +260,21 @@
       <span class="proficiency" id="proficiencyDisplay">地道度 60%</span>
     </div>
 
-    <!-- 首页场景列表 -->
-    <div id="homeView">
-      <ul class="scene-list" id="sceneList"></ul>
+    <!-- 分类列表首页 -->
+    <div id="categoryHomeView">
+      <ul class="category-list" id="categoryList"></ul>
     </div>
 
-    <!-- 详情视图 (初始隐藏) -->
+    <!-- 分类详情视图 (某分类下的场景列表) -->
+    <div id="categoryDetailView" class="hidden">
+      <span class="back-btn" id="backToCategoriesBtn">← 所有分类</span>
+      <h2 class="category-header" id="currentCategoryName"></h2>
+      <ul class="scene-list" id="categorySceneList"></ul>
+    </div>
+
+    <!-- 场景详情视图 (原来的详情页) -->
     <div id="detailView" class="hidden">
-      <span class="back-btn" id="backBtn">← 返回场景</span>
+      <span class="back-btn" id="backBtn">← 返回</span>
       <h2 class="detail-title" id="detailSceneName"></h2>
       
       <div class="button-group">
@@ -268,40 +307,80 @@
             try { window.speechSynthesis.getVoices(); } catch (e) {}
           }
 
-          const scenes = [
-            { name: "在咖啡店点单", level: "★", dialogue: "A: \"Hi, can I get a latte?\" B: \"Sure, for here or to go?\" A: \"For here, but with room for cream.\" B: \"Got it. That'll be $4.50.\"", practice: "I'd like a latte with room for cream." },
-            { name: "快餐店点餐", level: "★", dialogue: "A: \"Welcome to Burger King, may I take your order?\" B: \"Yeah, can I get a Whopper meal?\" A: \"What drink?\" B: \"Coke, please.\"", practice: "Can I get a Whopper meal with a Coke?" },
-            { name: "正式餐厅预订", level: "★★", dialogue: "A: \"Thanks for calling The French Laundry. How can I help?\" B: \"I'd like to book a table for two this Friday at 7.\" A: \"Let me check... yes, we have availability. Name?\"", practice: "I'd like to book a table for two this Friday at 7." },
-            { name: "餐厅点餐", level: "★★", dialogue: "A: \"Are you ready to order?\" B: \"Yes, I'll have the ribeye steak, medium rare.\" A: \"Any sides?\" B: \"Mashed potatoes and asparagus.\"", practice: "I'll have the ribeye steak, medium rare." },
-            { name: "结账与AA制", level: "★★", dialogue: "A: \"Can we get the check?\" B: \"Sure, together or separate?\" A: \"Separate, we're doing Dutch.\"", practice: "Separate, we're doing Dutch." },
-            { name: "抱怨与退货", level: "★★★", dialogue: "A: \"I'm sorry, but this steak is overcooked.\" B: \"Oh, I apologize. Let me get you a new one.\"", practice: "I'm sorry, but this steak is overcooked." },
-            { name: "机场值机与托运", level: "★★", dialogue: "A: \"Passport and ticket, please.\" B: \"Here you go. I have one bag to check.\" A: \"Any liquids or batteries?\"", practice: "I have one bag to check." },
-            { name: "安检对话", level: "★", dialogue: "A: \"Please take out your laptop and liquids.\" B: \"Sure. Do I need to remove my shoes?\" A: \"No, keep them on.\"", practice: "Do I need to remove my shoes?" },
-            { name: "登机口找座位", level: "★", dialogue: "A: \"Excuse me, is this the gate for flight AA123?\" B: \"No, that's over at gate 15.\" A: \"Thanks!\"", practice: "Is this the gate for flight AA123?" },
-            { name: "乘坐出租车/网约车", level: "★", dialogue: "A: \"Where to?\" B: \"JFK airport, please. And I'm in a hurry.\" A: \"Got it, I'll take the expressway.\"", practice: "JFK airport, please. And I'm in a hurry." },
-            { name: "问路与指路", level: "★", dialogue: "A: \"Excuse me, how do I get to Central Park?\" B: \"Walk straight two blocks, then turn left.\" A: \"Thanks a lot!\"", practice: "How do I get to Central Park?" },
-            { name: "酒店入住", level: "★★", dialogue: "A: \"I have a reservation under Smith.\" B: \"Yes, Mr. Smith. King bed, non-smoking. Checkout is at 11.\"", practice: "I have a reservation under Smith." },
-            { name: "酒店退房", level: "★★", dialogue: "A: \"I'm checking out, room 401.\" B: \"Great. Did you use the minibar?\" A: \"No, I didn't.\"", practice: "I'm checking out, room 401." },
-            { name: "租车", level: "★★★", dialogue: "A: \"I'd like to rent a midsize SUV for three days.\" B: \"Do you have insurance?\" A: \"Yes, I'll use my credit card coverage.\"", practice: "I'd like to rent a midsize SUV for three days." },
-            { name: "自我介绍", level: "★", dialogue: "A: \"Hi, I'm Mike. I'm a graphic designer.\" B: \"Nice to meet you, Mike. I'm Sarah.\"", practice: "Hi, I'm Mike. I'm a graphic designer." },
-            { name: "寒暄与闲聊", level: "★", dialogue: "A: \"Beautiful day, isn't it?\" B: \"Yeah, finally some sun. Any plans for the weekend?\"", practice: "Beautiful day, isn't it?" },
-            { name: "邀请朋友", level: "★★", dialogue: "A: \"We're having a barbecue on Saturday. Wanna come?\" B: \"Sounds fun! What time?\"", practice: "We're having a barbecue on Saturday. Wanna come?" },
-            { name: "道歉与解释", level: "★★", dialogue: "A: \"I'm so sorry I'm late. Traffic was insane.\" B: \"No worries, we just sat down.\"", practice: "I'm so sorry I'm late. Traffic was insane." },
-            { name: "感谢与回应", level: "★", dialogue: "A: \"Thanks for helping me move.\" B: \"Anytime, happy to help.\"", practice: "Thanks for helping me move." },
-            { name: "办公室问候", level: "★", dialogue: "A: \"Morning, Jenny. How was your evening?\" B: \"Pretty good, watched a movie. You?\"", practice: "Morning, Jenny. How was your evening?" },
-            { name: "电话预约", level: "★★", dialogue: "A: \"I'd like to schedule a meeting with Dr. Brown.\" B: \"He's free Tuesday at 2. Does that work?\"", practice: "I'd like to schedule a meeting with Dr. Brown." },
-            { name: "工作会议", level: "★★★", dialogue: "A: \"I think we should focus on user retention.\" B: \"Good point. Any ideas?\"", practice: "I think we should focus on user retention." },
-            { name: "请假", level: "★★", dialogue: "A: \"Boss, can I take Friday off? I have a doctor's appointment.\" B: \"Sure, just submit the request.\"", practice: "Can I take Friday off? I have a doctor's appointment." },
-            { name: "面试", level: "★★★", dialogue: "A: \"Tell me about yourself.\" B: \"I've been a project manager for 5 years...\"", practice: "Tell me about yourself." },
-            { name: "超市购物", level: "★", dialogue: "A: \"Where can I find almond milk?\" B: \"Aisle 6, dairy section.\"", practice: "Where can I find almond milk?" },
-            { name: "试穿与退货", level: "★★", dialogue: "A: \"Can I try this on?\" B: \"Dressing rooms are at the back.\" (later) A: \"I'd like to return this, it doesn't fit.\"", practice: "I'd like to return this, it doesn't fit." },
-            { name: "药店买药", level: "★★", dialogue: "A: \"Do you have anything for a headache?\" B: \"Ibuprofen is over the counter. Any allergies?\"", practice: "Do you have anything for a headache?" },
-            { name: "预约医生", level: "★★", dialogue: "A: \"I need to see Dr. Lee. I have a fever.\" B: \"The earliest is tomorrow at 10.\"", practice: "I need to see Dr. Lee. I have a fever." },
-            { name: "看医生", level: "★★", dialogue: "A: \"What seems to be the problem?\" B: \"I've had a sore throat for three days.\"", practice: "I've had a sore throat for three days." },
-            { name: "急诊", level: "★★★", dialogue: "A: \"My friend fainted! We need an ambulance.\" B: \"Stay calm. What's your location?\"", practice: "My friend fainted! We need an ambulance." },
-            { name: "报警", level: "★★★", dialogue: "A: \"I want to report a theft. My bag was stolen.\" B: \"Where did it happen?\"", practice: "I want to report a theft. My bag was stolen." }
+          // ---------- 场景数据：按分类和逻辑顺序组织 ----------
+          const categories = [
+            {
+              name: "餐饮与饮食",
+              scenes: [
+                { name: "在咖啡店点单", level: "★", dialogue: "A: \"Hi, can I get a latte?\" B: \"Sure, for here or to go?\" A: \"For here, but with room for cream.\" B: \"Got it. That'll be $4.50.\"", practice: "I'd like a latte with room for cream." },
+                { name: "快餐店点餐", level: "★", dialogue: "A: \"Welcome to Burger King, may I take your order?\" B: \"Yeah, can I get a Whopper meal?\" A: \"What drink?\" B: \"Coke, please.\"", practice: "Can I get a Whopper meal with a Coke?" },
+                { name: "正式餐厅预订", level: "★★", dialogue: "A: \"Thanks for calling The French Laundry. How can I help?\" B: \"I'd like to book a table for two this Friday at 7.\" A: \"Let me check... yes, we have availability. Name?\"", practice: "I'd like to book a table for two this Friday at 7." },
+                { name: "餐厅点餐", level: "★★", dialogue: "A: \"Are you ready to order?\" B: \"Yes, I'll have the ribeye steak, medium rare.\" A: \"Any sides?\" B: \"Mashed potatoes and asparagus.\"", practice: "I'll have the ribeye steak, medium rare." },
+                { name: "结账与AA制", level: "★★", dialogue: "A: \"Can we get the check?\" B: \"Sure, together or separate?\" A: \"Separate, we're doing Dutch.\"", practice: "Separate, we're doing Dutch." },
+                { name: "抱怨与退货", level: "★★★", dialogue: "A: \"I'm sorry, but this steak is overcooked.\" B: \"Oh, I apologize. Let me get you a new one.\"", practice: "I'm sorry, but this steak is overcooked." }
+              ]
+            },
+            {
+              name: "旅行与交通",
+              scenes: [
+                { name: "机场值机与托运", level: "★★", dialogue: "A: \"Passport and ticket, please.\" B: \"Here you go. I have one bag to check.\" A: \"Any liquids or batteries?\"", practice: "I have one bag to check." },
+                { name: "安检对话", level: "★", dialogue: "A: \"Please take out your laptop and liquids.\" B: \"Sure. Do I need to remove my shoes?\" A: \"No, keep them on.\"", practice: "Do I need to remove my shoes?" },
+                { name: "登机口找座位", level: "★", dialogue: "A: \"Excuse me, is this the gate for flight AA123?\" B: \"No, that's over at gate 15.\" A: \"Thanks!\"", practice: "Is this the gate for flight AA123?" },
+                { name: "乘坐出租车/网约车", level: "★", dialogue: "A: \"Where to?\" B: \"JFK airport, please. And I'm in a hurry.\" A: \"Got it, I'll take the expressway.\"", practice: "JFK airport, please. And I'm in a hurry." },
+                { name: "问路与指路", level: "★", dialogue: "A: \"Excuse me, how do I get to Central Park?\" B: \"Walk straight two blocks, then turn left.\" A: \"Thanks a lot!\"", practice: "How do I get to Central Park?" },
+                { name: "酒店入住", level: "★★", dialogue: "A: \"I have a reservation under Smith.\" B: \"Yes, Mr. Smith. King bed, non-smoking. Checkout is at 11.\"", practice: "I have a reservation under Smith." },
+                { name: "酒店退房", level: "★★", dialogue: "A: \"I'm checking out, room 401.\" B: \"Great. Did you use the minibar?\" A: \"No, I didn't.\"", practice: "I'm checking out, room 401." },
+                { name: "租车", level: "★★★", dialogue: "A: \"I'd like to rent a midsize SUV for three days.\" B: \"Do you have insurance?\" A: \"Yes, I'll use my credit card coverage.\"", practice: "I'd like to rent a midsize SUV for three days." }
+              ]
+            },
+            {
+              name: "日常社交",
+              scenes: [
+                { name: "自我介绍", level: "★", dialogue: "A: \"Hi, I'm Mike. I'm a graphic designer.\" B: \"Nice to meet you, Mike. I'm Sarah.\"", practice: "Hi, I'm Mike. I'm a graphic designer." },
+                { name: "寒暄与闲聊", level: "★", dialogue: "A: \"Beautiful day, isn't it?\" B: \"Yeah, finally some sun. Any plans for the weekend?\"", practice: "Beautiful day, isn't it?" },
+                { name: "邀请朋友", level: "★★", dialogue: "A: \"We're having a barbecue on Saturday. Wanna come?\" B: \"Sounds fun! What time?\"", practice: "We're having a barbecue on Saturday. Wanna come?" },
+                { name: "道歉与解释", level: "★★", dialogue: "A: \"I'm so sorry I'm late. Traffic was insane.\" B: \"No worries, we just sat down.\"", practice: "I'm so sorry I'm late. Traffic was insane." },
+                { name: "感谢与回应", level: "★", dialogue: "A: \"Thanks for helping me move.\" B: \"Anytime, happy to help.\"", practice: "Thanks for helping me move." }
+              ]
+            },
+            {
+              name: "工作与学习",
+              scenes: [
+                { name: "办公室问候", level: "★", dialogue: "A: \"Morning, Jenny. How was your evening?\" B: \"Pretty good, watched a movie. You?\"", practice: "Morning, Jenny. How was your evening?" },
+                { name: "电话预约", level: "★★", dialogue: "A: \"I'd like to schedule a meeting with Dr. Brown.\" B: \"He's free Tuesday at 2. Does that work?\"", practice: "I'd like to schedule a meeting with Dr. Brown." },
+                { name: "工作会议", level: "★★★", dialogue: "A: \"I think we should focus on user retention.\" B: \"Good point. Any ideas?\"", practice: "I think we should focus on user retention." },
+                { name: "请假", level: "★★", dialogue: "A: \"Boss, can I take Friday off? I have a doctor's appointment.\" B: \"Sure, just submit the request.\"", practice: "Can I take Friday off? I have a doctor's appointment." },
+                { name: "面试", level: "★★★", dialogue: "A: \"Tell me about yourself.\" B: \"I've been a project manager for 5 years...\"", practice: "Tell me about yourself." }
+              ]
+            },
+            {
+              name: "购物与服务",
+              scenes: [
+                { name: "超市购物", level: "★", dialogue: "A: \"Where can I find almond milk?\" B: \"Aisle 6, dairy section.\"", practice: "Where can I find almond milk?" },
+                { name: "试穿与退货", level: "★★", dialogue: "A: \"Can I try this on?\" B: \"Dressing rooms are at the back.\" (later) A: \"I'd like to return this, it doesn't fit.\"", practice: "I'd like to return this, it doesn't fit." },
+                { name: "药店买药", level: "★★", dialogue: "A: \"Do you have anything for a headache?\" B: \"Ibuprofen is over the counter. Any allergies?\"", practice: "Do you have anything for a headache?" }
+              ]
+            },
+            {
+              name: "医疗与紧急",
+              scenes: [
+                { name: "预约医生", level: "★★", dialogue: "A: \"I need to see Dr. Lee. I have a fever.\" B: \"The earliest is tomorrow at 10.\"", practice: "I need to see Dr. Lee. I have a fever." },
+                { name: "看医生", level: "★★", dialogue: "A: \"What seems to be the problem?\" B: \"I've had a sore throat for three days.\"", practice: "I've had a sore throat for three days." },
+                { name: "急诊", level: "★★★", dialogue: "A: \"My friend fainted! We need an ambulance.\" B: \"Stay calm. What's your location?\"", practice: "My friend fainted! We need an ambulance." },
+                { name: "报警", level: "★★★", dialogue: "A: \"I want to report a theft. My bag was stolen.\" B: \"Where did it happen?\"", practice: "I want to report a theft. My bag was stolen." }
+              ]
+            }
           ];
 
+          // 构建扁平场景数组，保留原始索引以便与userStats对应
+          const scenes = [];
+          categories.forEach(cat => {
+            cat.scenes.forEach(scene => {
+              scenes.push(scene);
+            });
+          });
+
+          // 尝试从 localStorage 读取数据
           let userStats;
           try {
             const savedStats = localStorage.getItem('english_user_stats');
@@ -325,11 +404,13 @@
             } catch (e) {}
           }
 
-          let currentSceneIndex = 0;
+          let currentSceneIndex = 0;          // 当前选中的场景全局索引
+          let currentCategoryIndex = 0;       // 当前选中的分类索引
+
+          // Web Speech API
           let isRecording = false;
           let recognition = null;
           let webSpeechSupported = false;
-
           if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -339,9 +420,14 @@
             webSpeechSupported = true;
           }
 
-          const homeView = document.getElementById('homeView');
+          // DOM 元素
+          const categoryHomeView = document.getElementById('categoryHomeView');
+          const categoryDetailView = document.getElementById('categoryDetailView');
           const detailView = document.getElementById('detailView');
-          const sceneListEl = document.getElementById('sceneList');
+          const categoryListEl = document.getElementById('categoryList');
+          const categorySceneListEl = document.getElementById('categorySceneList');
+          const backToCategoriesBtn = document.getElementById('backToCategoriesBtn');
+          const currentCategoryNameEl = document.getElementById('currentCategoryName');
           const backBtn = document.getElementById('backBtn');
           const detailSceneName = document.getElementById('detailSceneName');
           const listenBtn = document.getElementById('listenBtn');
@@ -357,31 +443,75 @@
           const recommendationText = document.getElementById('recommendationText');
           const proficiencyDisplay = document.getElementById('proficiencyDisplay');
 
-          if (!sceneListEl || !homeView || !detailView) {
-            if (sceneListEl) sceneListEl.innerHTML = '<li class="error-tip">页面加载异常，请刷新重试</li>';
-            return;
+          // 初始化渲染分类首页
+          function renderCategoryHome() {
+            categoryListEl.innerHTML = categories.map((cat, idx) => {
+              // 计算该分类下薄弱场景总数（可选显示）
+              const weakCount = cat.scenes.reduce((acc, scene, sceneIdx) => {
+                // 需要找到该场景在全局的索引
+                const globalIdx = scenes.findIndex(s => s.name === scene.name && s.dialogue === scene.dialogue);
+                return acc + (userStats[globalIdx]?.failCount >= 2 ? 1 : 0);
+              }, 0);
+              const badgeText = weakCount > 0 ? `⚠️ ${weakCount}个薄弱` : '';
+              return `<li class="category-item" data-category-index="${idx}">
+                <span>${cat.name}</span>
+                ${badgeText ? `<span class="category-badge">${badgeText}</span>` : ''}
+              </li>`;
+            }).join('');
           }
 
-          function renderHome() {
-            const indexed = scenes.map((s, i) => ({ ...s, index: i, failCount: userStats[i].failCount }));
-            indexed.sort((a, b) => b.failCount - a.failCount);
-            sceneListEl.innerHTML = indexed.map(item => {
+          // 渲染分类详情（场景列表）
+          function renderCategoryDetail(categoryIndex) {
+            const cat = categories[categoryIndex];
+            currentCategoryNameEl.textContent = cat.name;
+            // 获取该分类下所有场景的全局索引及数据
+            const sceneItems = cat.scenes.map(scene => {
+              const globalIdx = scenes.findIndex(s => s.name === scene.name && s.dialogue === scene.dialogue);
+              return { ...scene, globalIdx, failCount: userStats[globalIdx]?.failCount || 0 };
+            });
+            // 按薄弱点排序（可选，也可保留原有顺序，这里按原有顺序但薄弱点标记不变）
+            // 为保持逻辑顺序，我们保留原序，但可在视觉上标记薄弱点
+            categorySceneListEl.innerHTML = sceneItems.map(item => {
               const weakDot = item.failCount >= 2 ? '<span class="weak-dot">●</span>' : '';
-              return `<li class="scene-item" data-index="${item.index}">
+              return `<li class="scene-item" data-global-index="${item.globalIdx}">
                 <span class="scene-name">${item.name} ${item.level}</span>
                 ${weakDot}
               </li>`;
             }).join('');
           }
 
-          sceneListEl.addEventListener('click', (e) => {
-            const itemEl = e.target.closest('.scene-item');
-            if (itemEl) {
-              const idx = itemEl.dataset.index;
-              if (idx !== undefined) openDetail(parseInt(idx));
+          // 事件：点击分类进入分类详情
+          categoryListEl.addEventListener('click', (e) => {
+            const catItem = e.target.closest('.category-item');
+            if (catItem) {
+              const idx = catItem.dataset.categoryIndex;
+              if (idx !== undefined) {
+                currentCategoryIndex = parseInt(idx);
+                renderCategoryDetail(currentCategoryIndex);
+                categoryHomeView.classList.add('hidden');
+                categoryDetailView.classList.remove('hidden');
+              }
             }
           });
 
+          // 事件：点击分类详情中的场景进入场景详情
+          categorySceneListEl.addEventListener('click', (e) => {
+            const sceneItem = e.target.closest('.scene-item');
+            if (sceneItem) {
+              const globalIdx = sceneItem.dataset.globalIndex;
+              if (globalIdx !== undefined) {
+                openDetail(parseInt(globalIdx));
+              }
+            }
+          });
+
+          // 返回分类首页
+          backToCategoriesBtn.addEventListener('click', () => {
+            categoryDetailView.classList.add('hidden');
+            categoryHomeView.classList.remove('hidden');
+          });
+
+          // 打开场景详情（与之前相同）
           function openDetail(index) {
             currentSceneIndex = index;
             detailSceneName.textContent = scenes[index].name;
@@ -389,13 +519,22 @@
             readPanel.classList.add('hidden');
             practicePanel.classList.add('hidden');
             recognitionOutput.classList.add('hidden');
-            homeView.classList.add('hidden');
+            // 隐藏所有上层视图
+            categoryHomeView.classList.add('hidden');
+            categoryDetailView.classList.add('hidden');
             detailView.classList.remove('hidden');
           }
 
-          function goHome() {
-            homeView.classList.remove('hidden');
+          // 返回按钮：从详情返回上一级（如果是从分类详情进来的，则返回分类详情；否则返回分类首页）
+          function goBackFromDetail() {
             detailView.classList.add('hidden');
+            // 如果当前有选中的分类，则返回分类详情，否则返回分类首页
+            if (currentCategoryIndex !== undefined && categories[currentCategoryIndex]) {
+              categoryDetailView.classList.remove('hidden');
+            } else {
+              categoryHomeView.classList.remove('hidden');
+            }
+            // 停止录音/TTS
             if (recognition && isRecording) {
               try { recognition.stop(); } catch (e) {}
               stopRecordingUI();
@@ -404,20 +543,25 @@
               window.speechSynthesis.cancel();
             }
           }
+          backBtn.addEventListener('click', goBackFromDetail);
 
+          // 更新地道度
           function updateProficiency(delta) {
             proficiency = Math.min(100, Math.max(0, proficiency + delta));
             proficiencyDisplay.textContent = `地道度 ${Math.round(proficiency)}%`;
             saveData();
           }
 
+          // 处理口语练习结果 (与之前一致)
           function handlePracticeResult(recognized, target) {
             if (!recognized.trim()) {
               userStats[currentSceneIndex].failCount++;
               updateProficiency(-1);
               showScore('再试试 👎', 'score-tryagain', '未能识别，请重试');
               saveData();
-              renderHome();
+              // 更新所有视图中的标记（分类首页和分类详情需要重新渲染）
+              renderCategoryHome();
+              if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
               return;
             }
             const normalize = s => s.toLowerCase().replace(/[^\w\s]/g, '').split(/\s+/).filter(w => w.length>0);
@@ -447,7 +591,9 @@
             updateProficiency(delta);
             showScore(scoreText, className, `识别: "${recognized}"`);
             saveData();
-            renderHome();
+            // 更新标记
+            renderCategoryHome();
+            if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
           }
 
           function showScore(scoreText, className, detail) {
@@ -473,7 +619,8 @@
               updateProficiency(result.delta);
               showScore(result.score, result.fail ? 'score-tryagain' : (result.delta===2?'score-excellent':'score-good'), '模拟识别(降级模式)');
               saveData();
-              renderHome();
+              renderCategoryHome();
+              if (currentCategoryIndex !== undefined) renderCategoryDetail(currentCategoryIndex);
               return;
             }
 
@@ -513,9 +660,11 @@
             recordButton.classList.remove('recording');
           }
 
+          // 每日推荐 (基于全局索引)
           function setDailyRecommendation() {
             const today = new Date().getDay(); 
-            const recMap = [26, 19, 2, 5, 12, 0, 6];
+            const recMap = [26, 19, 2, 5, 12, 0, 6]; // 这些索引需要根据新场景顺序重新确认
+            // 注意：新场景顺序与之前相同，所以索引不变（之前也是按分类顺序定义的，索引一致）
             let idx = recMap[today] || 0;
             if (userStats[idx] && userStats[idx].failCount >= 2) {
               idx = (idx + 1) % scenes.length;
@@ -524,8 +673,13 @@
             recommendationText.dataset.recommendIndex = idx;
           }
 
-          backBtn.addEventListener('click', goHome);
+          // 点击推荐直接进入场景详情
+          recommendationText.addEventListener('click', () => {
+            const idx = recommendationText.dataset.recommendIndex;
+            if (idx) openDetail(parseInt(idx));
+          });
 
+          // TTS 听对话
           listenBtn.addEventListener('click', () => {
             if (!('speechSynthesis' in window)) {
               alert("您的浏览器不支持语音播报功能");
@@ -571,6 +725,7 @@
             });
           });
 
+          // 读文本
           readBtn.addEventListener('click', () => {
             const rawDialogue = scenes[currentSceneIndex].dialogue;
             const formattedDialogue = rawDialogue.replace(/\s+(A:|B:)/g, '\n$1');
@@ -593,16 +748,13 @@
 
           recordButton.addEventListener('click', startRecording);
 
-          recommendationText.addEventListener('click', () => {
-            const idx = recommendationText.dataset.recommendIndex;
-            if (idx) openDetail(parseInt(idx));
-          });
-
-          renderHome();
+          // 初始化
+          renderCategoryHome();
           setDailyRecommendation();
           proficiencyDisplay.textContent = `地道度 ${proficiency}%`;
 
-          window.goHome = goHome;
+          window.goHome = goBackFromDetail; // 兼容旧代码
+
         } catch (err) {
           console.error(err);
           const app = document.getElementById('app');
